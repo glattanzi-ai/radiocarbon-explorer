@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Radiocarbon Calibration Explorer — IntCal20 / SHCal20 / Marine20</title>
+<meta name="description" content="Interactive radiocarbon (14C) calibration calculator. Compare multiple BP dates against IntCal20, SHCal20 and Marine20 with 1σ/2σ probability distributions and regional Delta R marine reservoir corrections." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23b5502c'/%3E%3Cpath d='M5 20 L11 9 L16 17 L21 8 L27 20' stroke='%23f5f0e6' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./css/base.css" />
+<link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+
+<header class="topbar">
+  <div class="container topbar-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <path d="M6 34 L14 12 L20 26 L27 10 L34 26 L42 14" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14 40 L24 20 L34 40 Z" fill="currentColor" opacity="0.16"/>
+        <path d="M14 40 L24 20 L34 40" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" opacity="0.55"/>
+      </svg>
+      <div class="brand-text">
+        <h1>Radiocarbon Calibration Explorer</h1>
+        <p>IntCal20 · SHCal20 · Marine20</p>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Switch to dark mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <section class="intro">
+      <h2>Compare calibrated calendar ages across atmospheric and marine curves</h2>
+      <p>Enter one or more conventional radiocarbon determinations (e.g. <span class="mono">2440 ± 95 BP</span>), calibrate each against IntCal20, SHCal20 or Marine20, and inspect the resulting 1σ / 2σ highest-posterior-density ranges. Apply a regional ΔR correction to any marine-curve entry to see how reservoir assumptions shift a date's chronological placement.</p>
+      <div class="intro-citerow" id="citeRow"></div>
+    </section>
+
+    <!-- ADD DATES -->
+    <section class="section" id="inputSection">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Step 1</span>
+          <h3>Add radiocarbon dates</h3>
+        </div>
+      </div>
+      <div class="card">
+        <div class="form-grid">
+          <form id="dateForm" novalidate>
+            <div class="field-row">
+              <div class="field" style="grid-column: span 2;">
+                <label for="labId">Sample / Lab ID</label>
+                <input type="text" id="labId" placeholder="e.g. I-5247" autocomplete="off" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="bpVal">Conventional age
+                  <span class="hint">14C BP</span>
+                </label>
+                <div class="bp-input-group">
+                  <input type="number" id="bpVal" class="mono" placeholder="2440" step="1" />
+                  <span>±</span>
+                  <input type="number" id="bpErr" class="mono" placeholder="95" step="1" style="max-width:90px;" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="curveSel">Calibration curve</label>
+                <select id="curveSel">
+                  <option value="intcal20">IntCal20 (N. Hemisphere)</option>
+                  <option value="shcal20">SHCal20 (S. Hemisphere)</option>
+                  <option value="marine20">Marine20 (marine)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="deltaR-block" id="deltaRBlock">
+              <div class="field-row">
+                <div class="field">
+                  <label for="deltaRPreset">Regional ΔR preset</label>
+                  <select id="deltaRPreset">
+                    <option value="custom">Custom / global average (ΔR = 0)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="deltaRVal">ΔR (years)</label>
+                  <input type="number" id="deltaRVal" class="mono" placeholder="0" step="1" value="0" />
+                </div>
+                <div class="field">
+                  <label for="deltaRErr">ΔR error (±)</label>
+                  <input type="number" id="deltaRErr" class="mono" placeholder="0" step="1" value="0" />
+                </div>
+              </div>
+              <p class="deltaR-note">ΔR is the local offset from the global-average marine reservoir already built into Marine20. See <a href="#deltarSection" data-scroll>regional ΔR reference</a> below.</p>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="addBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                Add date
+              </button>
+              <button type="button" class="btn btn-secondary" id="loadExampleBtn">Load I-5247 example</button>
+              <button type="button" class="btn btn-ghost" id="clearAllBtn">Clear all</button>
+            </div>
+          </form>
+
+          <aside class="side-panel">
+            <h4>Curve coverage</h4>
+            <div class="curve-range">
+              <span>IntCal20</span><span class="val">0 – 55,000 cal BP</span>
+            </div>
+            <div class="curve-range">
+              <span>SHCal20</span><span class="val">0 – 55,000 cal BP</span>
+            </div>
+            <div class="curve-range">
+              <span>Marine20</span><span class="val">0 – 55,000 cal BP</span>
+            </div>
+            <div class="example-callout">
+              <strong>I-5247</strong> (2440 ± 95 BP) was measured on material from the Loyola Retreat site (18CH58), Charles County, Maryland — a Potomac River / Chesapeake-adjacent context. Loading the example adds the same raw age under three environmental assumptions: terrestrial Northern Hemisphere, terrestrial Southern Hemisphere, and marine shell with a Potomac River ΔR correction — so you can see how the assumed carbon reservoir alone changes the calibrated range by centuries.
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPARISON TABLE -->
+    <section class="section" id="tableSection">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Step 2</span>
+          <h3>Compare calibrated ranges</h3>
+          <p class="section-desc">Raw input vs. calibrated calendar range for every date currently loaded.</p>
+        </div>
+      </div>
+      <div class="card table-wrap">
+        <table class="compare" id="compareTable">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Sample</th>
+              <th>Curve</th>
+              <th>Raw age (BP)</th>
+              <th>ΔR</th>
+              <th>Median cal.</th>
+              <th>1σ range (68.3%)</th>
+              <th>2σ range (95.4%)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="compareBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+          <p>No dates yet — add one above or load the I-5247 example.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROBABILITY PLOT -->
+    <section class="section" id="plotSection">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Step 3</span>
+          <h3>Probability distributions</h3>
+          <p class="section-desc">Calibrated probability density per date, with 1σ and 2σ highest-posterior-density regions shaded.</p>
+        </div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-toolbar">
+          <div class="segmented" id="axisToggle" role="group" aria-label="X-axis units">
+            <button data-axis="bp" class="active">cal BP</button>
+            <button data-axis="calendar">BC / AD</button>
+          </div>
+        </div>
+        <div class="plot-container">
+          <canvas id="densityChart"></canvas>
+        </div>
+        <div class="chart-legend" id="densityLegend"></div>
+      </div>
+    </section>
+
+    <!-- RAW VS CALIBRATED -->
+    <section class="section" id="rangeSection">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Step 4</span>
+          <h3>Raw BP vs. calibrated calendar range</h3>
+          <p class="section-desc">The dashed bar treats the radiocarbon age as if it were already a calendar age (naïve 1-to-1 reading). The solid bar is the true calibrated range after correcting for atmospheric ¹⁴C variation — the gap between them is the calibration effect itself.</p>
+        </div>
+      </div>
+      <div class="card chart-card">
+        <div class="timeline-container tall" id="timelineContainer">
+          <canvas id="rangeChart"></canvas>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-swatch" style="background:var(--color-text-faint);"></span>Raw ¹⁴C age ± 1σ (uncalibrated, naïve BP≈cal BP)</span>
+          <span class="legend-item"><span class="legend-band" style="background:color-mix(in oklab, var(--color-primary) 35%, transparent);"></span>Calibrated 2σ range</span>
+          <span class="legend-item"><span class="legend-band" style="background:var(--color-primary);"></span>Calibrated 1σ range</span>
+        </div>
+        <p class="hint-note">Calendar conversion uses the historical BC/AD convention with no year zero (cal BP 0 = AD 1950).</p>
+      </div>
+    </section>
+
+    <!-- DELTA R -->
+    <section class="section" id="deltarSection">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Reference</span>
+          <h3>Marine reservoir (ΔR) corrections</h3>
+        </div>
+      </div>
+      <div class="card deltar-grid">
+        <div>
+          <p>Marine organisms exchange carbon with dissolved inorganic carbon in the ocean, which is depleted in ¹⁴C relative to the atmosphere because of slow mixing with deep water. This global offset — roughly 400 ¹⁴C years on average — is already built into the <strong>Marine20</strong> curve. Local currents, upwelling, and freshwater input cause additional site-specific deviation from that global average, captured by a regional correction term, <strong>ΔR</strong>.</p>
+          <div class="formula-box">X_adj = X_measured − ΔR &nbsp;&nbsp;|&nbsp;&nbsp; σ_adj = √(σ_measured² + σ_ΔR²)</div>
+          <p>The adjusted age and its inflated uncertainty are then calibrated against Marine20 exactly as a normal date is calibrated against IntCal20 or SHCal20. A positive ΔR means the local reservoir is <em>older</em> than the global average (push the effective age younger before calibration); a negative ΔR means it is younger.</p>
+          <p>Regional ΔR values are compiled from paired known-age shell measurements in the <a href="http://calib.org/marine/" target="_blank" rel="noopener noreferrer">Marine Reservoir Correction Database</a> (Reimer &amp; Reimer, calib.org). The presets below cover the Chesapeake Bay / Middle Atlantic coast, directly relevant to the I-5247 (Loyola Retreat, Potomac River) example.</p>
+        </div>
+        <div class="table-wrap">
+          <table class="deltar-ref">
+            <thead>
+              <tr><th>Region</th><th>ΔR</th><th>±</th><th></th></tr>
+            </thead>
+            <tbody id="deltarRefBody"></tbody>
+          </table>
+          </div>
+          <p class="deltar-source">Source: Rick, T.C., Henkes, G.A., Lowery, D.L., Colman, S.M. &amp; Culleton, B.J. (2012) "Marine radiocarbon reservoir corrections (ΔR) for Chesapeake Bay and the Middle Atlantic Coast of North America." <a href="https://doi.org/10.1016/j.yqres.2011.11.002" target="_blank" rel="noopener noreferrer">Quaternary Research 77(1), 205–210</a>, recalculated relative to Marine20 in the Marine Reservoir Correction Database.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <h5>Methodology</h5>
+        <p>For every date, the lab-reported Gaussian likelihood N(BP, σ) is compared against the calibration curve's own age and uncertainty at each calendar year, following the standard probabilistic approach used by CALIB and OxCal (Stuiver &amp; Reimer 1993; Bronk Ramsey 2009). The resulting density is normalized so its integral over calendar time equals 1, then the narrowest region(s) containing 68.3% (1σ) and 95.4% (2σ) of that probability are reported as highest-posterior-density (HPD) ranges — these can be disjoint where the calibration curve has plateaus or reversals ("wiggles"). Median calendar ages are the 50th-percentile of the cumulative distribution. All computation runs locally in your browser.</p>
+      </div>
+      <div>
+        <h5>Curve citations</h5>
+        <ul>
+          <li>Reimer, P.J. et al. (2020) "The IntCal20 Northern Hemisphere radiocarbon age calibration curve (0–55 cal kBP)." Radiocarbon 62(4), 725–757. <a href="https://doi.org/10.1017/RDC.2020.41" target="_blank" rel="noopener noreferrer">doi.org/10.1017/RDC.2020.41</a></li>
+          <li>Hogg, A.G. et al. (2020) "SHCal20 Southern Hemisphere calibration, 0–55,000 years cal BP." Radiocarbon 62(4), 759–778. <a href="https://doi.org/10.1017/RDC.2020.59" target="_blank" rel="noopener noreferrer">doi.org/10.1017/RDC.2020.59</a></li>
+          <li>Heaton, T.J. et al. (2020) "Marine20 — the marine radiocarbon age calibration curve (0–55,000 cal BP)." Radiocarbon 62(4), 779–820. <a href="https://doi.org/10.1017/RDC.2020.68" target="_blank" rel="noopener noreferrer">doi.org/10.1017/RDC.2020.68</a></li>
+          <li>Rick, T.C. et al. (2012) "Marine radiocarbon reservoir corrections (ΔR) for Chesapeake Bay and the Middle Atlantic Coast of North America." Quaternary Research 77(1), 205–210. <a href="https://doi.org/10.1016/j.yqres.2011.11.002" target="_blank" rel="noopener noreferrer">doi.org/10.1016/j.yqres.2011.11.002</a></li>
+          <li>Curve datasets retrieved from <a href="https://intcal.org/curves.html" target="_blank" rel="noopener noreferrer">intcal.org</a> / <a href="http://calib.org" target="_blank" rel="noopener noreferrer">calib.org</a>. I-5247 provenance: Handsman &amp; McNett (1974); Maryland Historical Trust site files, via the <a href="https://apps.jefpat.maryland.gov/diagnostic/PCCeramics/RadiocarbonDates.aspx" target="_blank" rel="noopener noreferrer">Maryland Diagnostic Artifacts database</a>.</li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="./js/curves.js"></script>
+<script src="./js/calib.js"></script>
+<script src="./js/charts.js"></script>
+<script src="./js/app.js"></script>
+<script data-pplx-inline-edit>
+(function () {
+  if (window === window.top) return;
+
+  const allowedParentOrigins = ["https://www.perplexity.ai","https://perplexity.ai","https://testing.perplexity.ai","https://staging.perplexity.ai","https://*.preview.i.perplexity.ai","http://perplexity.localhost","http://localhost:1420","http://127.0.0.1:1420","http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"];
+  const MAX_FONT_BYTES = 500 * 1024;
+  const MAX_TOTAL_FONT_BYTES = 2 * 1024 * 1024;
+  let scrollForwarding = false;
+  let scrollRaf = 0;
+  let trustedTopOrigin = null;
+
+  // Allow entries like "https://*.preview.i.perplexity.ai" — the wildcard
+  // matches a single DNS label (no dots), so "https://*.foo" cannot stretch
+  // across multiple labels.
+  function matchesAllowedOrigin(origin) {
+    if (!origin) return false;
+    for (const entry of allowedParentOrigins) {
+      if (!entry.includes("*")) {
+        if (entry === origin) return true;
+        continue;
+      }
+      const pattern = new RegExp(
+        "^" +
+          entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^.]+") +
+          "$",
+      );
+      if (pattern.test(origin)) return true;
+    }
+    return false;
+  }
+
+  // Trust decision: when the sender is same-origin-visible (event.origin is a
+  // real origin like https://www.perplexity.ai) we trust event.origin directly.
+  // When event.origin is "null" (opaque broker srcdoc), we fall back to the
+  // broker's stamped `parentOrigin` to identify the top window. The fallback
+  // is claim-only — we rely on the browser's native `targetOrigin` enforcement
+  // on the response path (see postToTrustedTop) to ensure replies can't be
+  // delivered to anyone but the actual top window of that claimed origin.
+  function getTrustedParentOrigin(event) {
+    const forwardedParentOrigin =
+      typeof event.data.parentOrigin === "string" ? event.data.parentOrigin : null;
+    const parentOrigin = event.origin === "null" ? forwardedParentOrigin : event.origin;
+    return matchesAllowedOrigin(parentOrigin) ? parentOrigin : null;
+  }
+
+  // All responses go to window.top with targetOrigin = the allowlisted origin.
+  // An attacker that iframes us inside their own null-origin broker can claim
+  // any parentOrigin they like, but the browser will drop the reply whenever
+  // the real top's origin doesn't match — so the screenshot never leaves.
+  function postToTrustedTop(message) {
+    if (!trustedTopOrigin) return;
+    try {
+      window.top.postMessage(message, trustedTopOrigin);
+    } catch (_error) {}
+  }
+
+  function inlineAll(original, clone) {
+    if (original.nodeType !== 1 || clone.nodeType !== 1) return;
+
+    try {
+      const computedStyle = getComputedStyle(original);
+      // cssText on a computed style is the serialized declaration in modern
+      // Chromium/Safari — a single read beats enumerating ~400 longhand
+      // properties. Firefox returns "" here, so we fall back on empty.
+      const serialized = computedStyle.cssText;
+      if (serialized) {
+        clone.style.cssText = serialized;
+      } else {
+        const parts = new Array(computedStyle.length);
+        for (let index = 0; index < computedStyle.length; index += 1) {
+          const property = computedStyle[index];
+          parts[index] = `${property}:${computedStyle.getPropertyValue(property)};`;
+        }
+        clone.style.cssText = parts.join("");
+      }
+    } catch (_error) {}
+
+    const originalChildren = original.children;
+    const clonedChildren = clone.children;
+    for (
+      let index = 0;
+      index < originalChildren.length && index < clonedChildren.length;
+      index += 1
+    ) {
+      inlineAll(originalChildren[index], clonedChildren[index]);
+    }
+  }
+
+  function extractFontUrl(srcValue) {
+    const matches = [
+      ...srcValue.matchAll(
+        /url\(["']?([^"')]+)["']?\)(?:\s*format\(["']?([^"')]+)["']?\))?/gi,
+      ),
+    ];
+    if (matches.length === 0) return null;
+    const woff2 = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff2"));
+    if (woff2) return woff2[1];
+    const woff = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff"));
+    if (woff) return woff[1];
+    return matches[0][1];
+  }
+
+  // Cache resolved font URL -> data URI across captures. Fonts on a page
+  // essentially never change, and a batch run emits multiple captures back to
+  // back — without this we'd refetch + re-base64 every time.
+  const fontDataUriCache = new Map();
+  const SRC_DECLARATION_RE = /src\s*:\s*[^;}]+/i;
+
+  async function fetchAsDataUri(url) {
+    if (fontDataUriCache.has(url)) return fontDataUriCache.get(url);
+    let dataUri = null;
+    try {
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size <= MAX_FONT_BYTES) {
+          dataUri = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              resolve(typeof reader.result === "string" ? reader.result : null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    } catch (_error) {
+      dataUri = null;
+    }
+    fontDataUriCache.set(url, dataUri);
+    return dataUri;
+  }
+
+  function collectFontFaceRuleTexts() {
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let cssRules;
+      try {
+        cssRules = sheet.cssRules;
+      } catch (_error) {
+        continue;
+      }
+      if (!cssRules) continue;
+      for (const rule of cssRules) {
+        const cssText = rule.cssText || "";
+        if (cssText.startsWith("@font-face")) rules.push(cssText);
+      }
+    }
+    return rules;
+  }
+
+  async function buildInlinedFontCss() {
+    const ruleTexts = collectFontFaceRuleTexts();
+    if (ruleTexts.length === 0) return null;
+
+    const resolved = ruleTexts.map((cssText) => {
+      if (!SRC_DECLARATION_RE.test(cssText)) return null;
+      const srcMatch = cssText.match(/src\s*:\s*([^;}]+)[;}]/i);
+      if (!srcMatch) return null;
+      const url = extractFontUrl(srcMatch[1]);
+      if (!url) return null;
+      try {
+        return { cssText, url: new URL(url, document.baseURI).href };
+      } catch (_error) {
+        return null;
+      }
+    });
+
+    const dataUris = await Promise.all(
+      resolved.map((entry) => (entry ? fetchAsDataUri(entry.url) : Promise.resolve(null))),
+    );
+
+    const inlined = [];
+    let totalBytes = 0;
+    for (let index = 0; index < resolved.length; index += 1) {
+      const entry = resolved[index];
+      const dataUri = dataUris[index];
+      if (!entry || !dataUri) continue;
+      const approxBytes = dataUri.length * 0.75;
+      if (totalBytes + approxBytes > MAX_TOTAL_FONT_BYTES) break;
+      totalBytes += approxBytes;
+      inlined.push(entry.cssText.replace(SRC_DECLARATION_RE, `src: url("${dataUri}")`));
+    }
+    return inlined.length > 0 ? inlined.join("\n") : null;
+  }
+
+  function stripExternal(clone) {
+    const images = clone.querySelectorAll("img");
+    for (let index = 0; index < images.length; index += 1) {
+      const src = images[index].getAttribute("src");
+      if (src && !src.startsWith("data:")) images[index].removeAttribute("src");
+    }
+
+    const elements = clone.querySelectorAll("*");
+    for (let index = 0; index < elements.length; index += 1) {
+      const style = elements[index].style.cssText;
+      if (style && style.includes("url(")) {
+        elements[index].style.cssText = style.replace(
+          /url\(["']?(?!data:)[^)"']*["']?\)/gi,
+          "none",
+        );
+      }
+    }
+  }
+
+  function emitScroll() {
+    scrollRaf = 0;
+    if (!scrollForwarding) return;
+    postToTrustedTop({
+      type: "INLINE_EDIT_SCROLL",
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    });
+  }
+
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (!scrollForwarding || scrollRaf) return;
+      scrollRaf = requestAnimationFrame(emitScroll);
+    },
+    { passive: true, capture: true },
+  );
+
+  async function handleCaptureRequest(event) {
+    const requestId = event.data.requestId;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    function postResult(dataUrl) {
+      postToTrustedTop({
+        type: "INLINE_EDIT_SCREENSHOT_RESULT",
+        requestId,
+        dataUrl,
+        scrollX,
+        scrollY,
+      });
+    }
+
+    try {
+      // Wait for any pending web fonts to resolve so both inline metrics and
+      // the @font-face inlining below see the same loaded faces.
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (_error) {}
+      }
+
+      const clone = document.documentElement.cloneNode(true);
+      inlineAll(document.documentElement, clone);
+
+      const removedNodes = clone.querySelectorAll("script,link[rel=\"stylesheet\"],style");
+      for (let index = 0; index < removedNodes.length; index += 1) {
+        removedNodes[index].remove();
+      }
+
+      stripExternal(clone);
+
+      // Re-embed web fonts as data-URI @font-face rules so the SVG rasterizer
+      // can resolve them — external font URLs aren't fetched during
+      // foreignObject rendering, which would otherwise force a fallback face
+      // and change text metrics.
+      const inlinedFontCss = await buildInlinedFontCss();
+      if (inlinedFontCss) {
+        const styleEl = document.createElement("style");
+        styleEl.textContent = inlinedFontCss;
+        const head = clone.querySelector("head");
+        if (head) head.appendChild(styleEl);
+        else clone.insertBefore(styleEl, clone.firstChild);
+      }
+
+      const html = new XMLSerializer().serializeToString(clone);
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+        '<foreignObject width="100%" height="100%">' +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden">` +
+        `<div style="position:relative;left:-${scrollX}px;top:-${scrollY}px">` +
+        html +
+        "</div></div></foreignObject></svg>";
+      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      const image = new Image();
+      image.onload = function () {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(image, 0, 0);
+        postResult(canvas.toDataURL("image/png"));
+      };
+      image.onerror = function () {
+        postResult(null);
+      };
+      image.src = svgUrl;
+    } catch (_error) {
+      postResult(null);
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!event.data) return;
+    // Only accept messages from the direct parent frame. Blocks sibling /
+    // unrelated-window postMessage senders that could otherwise reach us.
+    if (event.source !== window.parent) return;
+
+    const trustedParentOrigin = getTrustedParentOrigin(event);
+    if (!trustedParentOrigin) return;
+    trustedTopOrigin = trustedParentOrigin;
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_START") {
+      scrollForwarding = true;
+      emitScroll();
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_STOP") {
+      scrollForwarding = false;
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+      return;
+    }
+
+    if (event.data.type !== "INLINE_EDIT_CAPTURE_REQUEST") return;
+
+    handleCaptureRequest(event);
+  });
+})();
+
+
+</script></body>
+</html>
